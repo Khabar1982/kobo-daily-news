@@ -31,7 +31,6 @@ def build_daily_epub():
 
                 title = article.title if article.title else entry.title
                 
-                # Se newspaper non estrae testo, usa il sommario del feed RSS
                 body_text = article.text.strip()
                 if not body_text and hasattr(entry, "summary"):
                     body_text = entry.summary
@@ -50,7 +49,6 @@ def build_daily_epub():
                 print(f"Salto articolo {entry.link}: {e}")
 
     if not chapters:
-        # Crea un capitolo segnaposto se il feed fosse temporaneamente vuoto
         fallback = epub.EpubHtml(title="Nessun articolo", file_name="empty.xhtml", lang="it")
         fallback.content = "<h2>Nessun articolo trovato per oggi.</h2>"
         book.add_item(fallback)
@@ -62,9 +60,43 @@ def build_daily_epub():
     book.add_item(epub.EpubNav())
     book.spine = ["nav"] + chapters
 
+    # Salviamo sia il file con data sia una copia fissa "giornale_oggi.epub"
     filename = f"Giornale_{today_str}.epub"
     epub.write_epub(filename, book, {})
+    epub.write_epub("giornale_oggi.epub", book, {})
     print(f"File creato con successo: {filename}")
+
+    # Pagina HTML ultraleggera per lo schermo E-Ink del Kobo
+    html_content = f"""<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giornale Kobo</title>
+    <style>
+        body {{ font-family: sans-serif; text-align: center; padding: 50px 20px; background: #fff; color: #000; }}
+        h1 {{ font-size: 26px; margin-bottom: 10px; }}
+        p {{ font-size: 18px; margin-bottom: 35px; color: #333; }}
+        a.btn {{
+            display: inline-block;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 6px;
+        }}
+    </style>
+</head>
+<body>
+    <h1>Il Giornale del Mattino</h1>
+    <p>Edizione del {today_str}</p>
+    <a class="btn" href="giornale_oggi.epub">SCARICA IL GIORNALE</a>
+</body>
+</html>"""
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
 
 if __name__ == "__main__":
     build_daily_epub()
