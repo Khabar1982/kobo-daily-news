@@ -1,0 +1,43 @@
+name: Genera Giornale Kobo
+
+on:
+  schedule:
+    # 04:30 UTC = 06:30 ora italiana
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configura Python
+        uses: setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installa dipendenze
+        run: |
+          pip install -r requirements.txt
+
+      - name: Genera il file EPUB
+        run: |
+          python generate_news.py
+
+      - name: Ricava la data odierna
+        id: date
+        run: echo "today=$(date +'%d-%m-%Y')" >> $GITHUB_OUTPUT
+
+      - name: Pubblica la Release con il file EPUB
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release-${{ steps.date.outputs.today }}
+          name: Giornale del ${{ steps.date.outputs.today }}
+          files: "*.epub"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
