@@ -19,6 +19,7 @@ def build_daily_epub():
     toc = []
 
     for source in sources:
+        print(f"Lettura fonte: {source['name']}")
         feed = feedparser.parse(source["url"])
         entries = feed.entries[:source.get("max_articles", 15)]
 
@@ -28,8 +29,14 @@ def build_daily_epub():
                 article.download()
                 article.parse()
 
-                title = article.title or entry.title
-                text_content = article.text.replace("\n", "<br><br>")
+                title = article.title if article.title else entry.title
+                
+                # Se newspaper non estrae testo, usa il sommario del feed RSS
+                body_text = article.text.strip()
+                if not body_text and hasattr(entry, "summary"):
+                    body_text = entry.summary
+
+                text_content = body_text.replace("\n", "<br><br>")
 
                 chap_id = f"art_{len(chapters) + 1}"
                 chapter = epub.EpubHtml(title=title, file_name=f"{chap_id}.xhtml", lang="it")
@@ -38,8 +45,17 @@ def build_daily_epub():
                 book.add_item(chapter)
                 chapters.append(chapter)
                 toc.append(chapter)
+                print(f"Aggiunto: {title}")
             except Exception as e:
-                print(f"Errore su {entry.link}: {e}")
+                print(f"Salto articolo {entry.link}: {e}")
+
+    if not chapters:
+        # Crea un capitolo segnaposto se il feed fosse temporaneamente vuoto
+        fallback = epub.EpubHtml(title="Nessun articolo", file_name="empty.xhtml", lang="it")
+        fallback.content = "<h2>Nessun articolo trovato per oggi.</h2>"
+        book.add_item(fallback)
+        chapters.append(fallback)
+        toc.append(fallback)
 
     book.toc = tuple(toc)
     book.add_item(epub.EpubNcx())
@@ -48,7 +64,7 @@ def build_daily_epub():
 
     filename = f"Giornale_{today_str}.epub"
     epub.write_epub(filename, book, {})
-    print(f"Creato con successo: {filename}")
+    print(f"File creato con successo: {filename}")
 
 if __name__ == "__main__":
     build_daily_epub()
