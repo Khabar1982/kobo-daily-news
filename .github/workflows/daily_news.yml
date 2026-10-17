@@ -6,12 +6,14 @@ on:
     - cron: '30 4 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,12 +24,10 @@ jobs:
           python-version: '3.11'
 
       - name: Installa dipendenze
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
-      - name: Genera il file EPUB
-        run: |
-          python generate_news.py
+      - name: Genera il file EPUB e la pagina web
+        run: python generate_news.py
 
       - name: Ricava la data odierna
         id: get_date
@@ -41,3 +41,17 @@ jobs:
           files: "*.epub"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepara file per GitHub Pages
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp giornale_oggi.epub _site/
+
+      - name: Carica artefatto Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Distribuisci su GitHub Pages
+        uses: actions/deploy-pages@v4
