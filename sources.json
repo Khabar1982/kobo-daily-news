@@ -1,7 +1,17 @@
 [
   {
-    "name": "Il Post",
+    "name": "Il Post - Home",
     "url": "https://www.ilpost.it/feed/",
-    "max_articles": 15
+    "max_articles": 10
+  },
+  {
+    "name": "Il Post - Italia",
+    "url": "https://www.ilpost.it/italia/feed/",
+    "max_articles": 5
+  },
+  {
+    "name": "Il Post - Mondo",
+    "url": "https://www.ilpost.it/mondo/feed/",
+    "max_articles": 5
   }
 ]
