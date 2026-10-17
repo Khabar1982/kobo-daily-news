@@ -30,14 +30,14 @@ jobs:
           python generate_news.py
 
       - name: Ricava la data odierna
-        id: date
+        id: get_date
         run: echo "today=$(date +'%d-%m-%Y')" >> $GITHUB_OUTPUT
 
-      - name: Pubblica la Release con il file EPUB
+      - name: Pubblica la Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: release-${{ steps.date.outputs.today }}
-          name: Giornale del ${{ steps.date.outputs.today }}
+          tag_name: release-${{ steps.get_date.outputs.today }}
+          name: Giornale del ${{ steps.get_date.outputs.today }}
           files: "*.epub"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
