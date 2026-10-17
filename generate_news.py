@@ -1,8 +1,30 @@
 import json
 from datetime import datetime
 import feedparser
-from newspaper import Article
+import requests
+from bs4 import BeautifulSoup
 from ebooklib import epub
+
+def get_article_content(url, fallback_summary):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            
+            # Cerca il contenitore dell'articolo de Il Post
+            article_body = soup.find("div", class_="entry-content") or soup.find("article")
+            if article_body:
+                paragraphs = article_body.find_all("p")
+                text = "<br><br>".join(p.get_text().strip() for p in paragraphs if p.get_text().strip())
+                if len(text) > 150:
+                    return text
+    except Exception as e:
+        print(f"Errore download pagina {url}: {e}")
+        
+    return fallback_summary.replace("\n", "<br><br>")
 
 def build_daily_epub():
     today_str = datetime.now().strftime("%d-%m-%Y")
@@ -25,28 +47,25 @@ def build_daily_epub():
 
         for entry in entries:
             try:
-                article = Article(entry.link, language="it")
-                article.download()
-                article.parse()
-
-                title = article.title if article.title else entry.title
+                title = getattr(entry, "title", "Senza Titolo")
+                summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
                 
-                body_text = article.text.strip()
-                if not body_text and hasattr(entry, "summary"):
-                    body_text = entry.summary
-
-                text_content = body_text.replace("\n", "<br><br>")
+                # Pulisce l'HTML di base del riassunto per sicurezza
+                clean_summary = BeautifulSoup(summary, "html.parser").get_text()
+                
+                # Scarica il corpo completo dell'articolo o usa il sommario
+                content = get_article_content(entry.link, clean_summary)
 
                 chap_id = f"art_{len(chapters) + 1}"
                 chapter = epub.EpubHtml(title=title, file_name=f"{chap_id}.xhtml", lang="it")
-                chapter.content = f"<h2>{title}</h2><p><i>Fonte: {source['name']}</i></p><hr/><div>{text_content}</div>"
+                chapter.content = f"<h2>{title}</h2><p><i>Fonte: {source['name']} - <a href='{entry.link}'>Link originale</a></i></p><hr/><div>{content}</div>"
 
                 book.add_item(chapter)
                 chapters.append(chapter)
                 toc.append(chapter)
                 print(f"Aggiunto: {title}")
             except Exception as e:
-                print(f"Salto articolo {entry.link}: {e}")
+                print(f"Errore su {entry.link}: {e}")
 
     if not chapters:
         fallback = epub.EpubHtml(title="Nessun articolo", file_name="empty.xhtml", lang="it")
@@ -60,13 +79,12 @@ def build_daily_epub():
     book.add_item(epub.EpubNav())
     book.spine = ["nav"] + chapters
 
-    # Salviamo sia il file con data sia una copia fissa "giornale_oggi.epub"
     filename = f"Giornale_{today_str}.epub"
     epub.write_epub(filename, book, {})
     epub.write_epub("giornale_oggi.epub", book, {})
     print(f"File creato con successo: {filename}")
 
-    # Pagina HTML ultraleggera per lo schermo E-Ink del Kobo
+    # Pagina HTML ultraleggera per il Kobo
     html_content = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
